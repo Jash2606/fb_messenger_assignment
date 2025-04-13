@@ -22,7 +22,7 @@ def wait_for_cassandra():
     
     for _ in range(10):  # Try 10 times
         try:
-            cluster = Cluster([CASSANDRA_HOST])
+            cluster = Cluster([CASSANDRA_HOST], port=CASSANDRA_PORT )
             session = cluster.connect()
             logger.info("Cassandra is ready!")
             return cluster

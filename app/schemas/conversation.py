@@ -4,9 +4,9 @@ from datetime import datetime
 from app.schemas.message import MessageResponse
 
 class ConversationResponse(BaseModel):
-    id: int = Field(..., description="Unique ID of the conversation")
-    user1_id: int = Field(..., description="ID of the first user")
-    user2_id: int = Field(..., description="ID of the second user")
+    id: str = Field(..., description="Unique ID of the conversation")
+    user1_id: str = Field(..., description="ID of the first user")
+    user2_id: str = Field(..., description="ID of the second user")
     last_message_at: datetime = Field(..., description="Timestamp of the last message")
     last_message_content: Optional[str] = Field(None, description="Content of the last message")
 
