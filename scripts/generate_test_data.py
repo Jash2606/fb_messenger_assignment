@@ -49,13 +49,65 @@ def generate_test_data(session):
     # TODO: Students should implement the test data generation logic
     # Hint:
     # 1. Create a set of user IDs
-    # 2. Create conversations between random pairs of users
-    # 3. For each conversation, generate a random number of messages
-    # 4. Update relevant tables to maintain data consistency
+    users = [uuid.uuid4() for _ in range(NUM_USERS)]
+    logger.info(f"Generated {NUM_USERS} users.")
+
+    # 2. Create conversations and messages
+    for conv_num in range(NUM_CONVERSATIONS):
+        # Randomly select number of participants: 2 to 4 users per conversation
+        num_participants = random.choice([2, 3, 4])
+        participants = random.sample(users, num_participants)
+        
+        conversation_id = uuid.uuid4()
+        # Choose a base time between 1 and 30 days ago
+        base_time = datetime.now() - timedelta(days=random.randint(1, 30))
+        
+        # Decide number of messages for this conversation (ensure at least 1)
+        num_messages = random.randint(1, MAX_MESSAGES_PER_CONVERSATION)
+        last_message_time = base_time
+        last_message_text = ""
+        
+        # Insert messages into messages_by_conversation
+        for i in range(num_messages):
+            # Increment the timestamp by a random seconds offset (between 60 to 300 seconds)
+            message_time = base_time + timedelta(seconds=random.randint(60, 300) * i)
+            last_message_time = message_time
+            
+            # Generate a time-based UUID for the message (this will embed the timestamp)
+            message_id = uuid.uuid1(clock_seq=random.randint(0, 0x7FFF))
+            
+            # Randomly choose a sender from the conversation participants
+            sender_id = random.choice(participants)
+            message_text = f"Message {i+1} in conversation {str(conversation_id)[:8]}"
+            last_message_text = message_text
+            
+            query_message = """
+            INSERT INTO messages_by_conversation (conversation_id, message_id, sender_id, message_text, created_at)
+            VALUES (%s, %s, %s, %s, %s)
+            """
+            session.execute(query_message, (conversation_id, message_id, sender_id, message_text, message_time))
+        
+        # Insert conversation metadata into conversation_details
+        query_details = """
+        INSERT INTO conversation_details (conversation_id, participants, created_at)
+        VALUES (%s, %s, %s)
+        """
+        session.execute(query_details, (conversation_id, participants, base_time))
+        
+        # Insert/update the conversation record for each participant in conversations_by_user
+        # We use the final message's timestamp and text as the "last message" update.
+        query_convo_by_user = """
+        INSERT INTO conversations_by_user (user_id, last_message_time, conversation_id, last_message, participants)
+        VALUES (%s, %s, %s, %s, %s)
+        """
+        for user in participants:
+            session.execute(query_convo_by_user, (user, last_message_time, conversation_id, last_message_text, participants))
+        
+        logger.info(f"Created conversation {conv_num+1}/{NUM_CONVERSATIONS} with {num_messages} messages and {num_participants} participants.")
     
-    logger.info(f"Generated {NUM_CONVERSATIONS} conversations with messages")
-    logger.info(f"User IDs range from 1 to {NUM_USERS}")
-    logger.info("Use these IDs for testing the API endpoints")
+    logger.info(f"Generated {NUM_CONVERSATIONS} conversations with messages.")
+    logger.info(f"User IDs range from {users[0]} to {users[-1]}")
+    logger.info("Test data generation completed.")
 
 def main():
     """Main function to generate test data."""

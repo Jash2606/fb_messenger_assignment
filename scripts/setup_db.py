@@ -37,29 +37,76 @@ def create_keyspace(session):
     """
     Create the keyspace if it doesn't exist.
     
-    This is where students will define the keyspace configuration.
+    This implementation uses SimpleStrategy with a replication factor of 1.
+    In production, consider using NetworkTopologyStrategy and a higher replication factor.
     """
     logger.info(f"Creating keyspace {CASSANDRA_KEYSPACE} if it doesn't exist...")
-    
-    # TODO: Students should implement keyspace creation
-    # Hint: Consider replication strategy and factor for a distributed database
-    
+
+    keyspace_query = f"""
+    CREATE KEYSPACE IF NOT EXISTS {CASSANDRA_KEYSPACE}
+    WITH replication = {{
+        'class': 'SimpleStrategy',
+        'replication_factor': '1'
+    }}
+    """
+    session.execute(keyspace_query)
     logger.info(f"Keyspace {CASSANDRA_KEYSPACE} is ready.")
 
 def create_tables(session):
     """
     Create the tables for the application.
     
-    This is where students will define the table schemas based on the requirements.
+
     """
+    logger.info("Dropping existing tables (if any)...")
+    session.execute("DROP TABLE IF EXISTS messages_by_conversation;")
+    session.execute("DROP TABLE IF EXISTS conversations_by_user;")
+    session.execute("DROP TABLE IF EXISTS conversation_details;")
+
     logger.info("Creating tables...")
-    
-    # TODO: Students should implement table creation
-    # Hint: Consider:
-    # - What tables are needed to implement the required APIs?
-    # - What should be the primary keys and clustering columns?
-    # - How will you handle pagination and time-based queries?
-    
+    # 1. messages_by_conversation
+    # This table stores all messages within a conversation and sorts them using a timeuuid.
+    messages_table_query = """
+    CREATE TABLE IF NOT EXISTS messages_by_conversation (
+        conversation_id uuid,
+        message_id timeuuid,
+        sender_id uuid,
+        message_text text,
+        created_at timestamp,
+        PRIMARY KEY (conversation_id, message_id)
+    ) WITH CLUSTERING ORDER BY (message_id DESC);
+    """
+    session.execute(messages_table_query)
+    logger.info("Table messages_by_conversation created.")
+
+    # 2. conversations_by_user
+    # This table stores conversations per user and sorts them by last message time.
+    conversations_table_query = """
+    CREATE TABLE IF NOT EXISTS conversations_by_user (
+        user_id uuid,
+        last_message_time timestamp,
+        conversation_id uuid,
+        last_message text,
+        participants list<uuid>,
+        PRIMARY KEY (user_id, last_message_time, conversation_id)
+    ) WITH CLUSTERING ORDER BY (last_message_time DESC);
+    """
+    session.execute(conversations_table_query)
+    logger.info("Table conversations_by_user created.")
+
+    # 3. conversation_details
+    # This table stores metadata for each conversation.
+    conversation_details_query = """
+    CREATE TABLE IF NOT EXISTS conversation_details (
+        conversation_id uuid,
+        participants list<uuid>,
+        created_at timestamp,
+        PRIMARY KEY (conversation_id)
+    );
+    """
+    session.execute(conversation_details_query)
+    logger.info("Table conversation_details created.")
+
     logger.info("Tables created successfully.")
 
 def main():
@@ -72,7 +119,7 @@ def main():
     try:
         # Connect to the server
         session = cluster.connect()
-        
+
         # Create keyspace and tables
         create_keyspace(session)
         session.set_keyspace(CASSANDRA_KEYSPACE)
@@ -87,4 +134,4 @@ def main():
             cluster.shutdown()
 
 if __name__ == "__main__":
-    main() 
+    main()
